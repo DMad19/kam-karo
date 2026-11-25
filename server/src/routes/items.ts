@@ -1,5 +1,5 @@
 // GET /api/items and POST /api/items/voice
-import { Router, type Request, type Response } from "express";
+import { Router, type NextFunction, type Request, type Response } from "express";
 import multer from "multer";
 import { evaluateBuyerFlags } from "../services/flagsmithService.js";
 import { extractSellerListing } from "../services/sarvamSellerService.js";
@@ -56,7 +56,22 @@ itemsRouter.get("/items", async (req: Request, res: Response) => {
   res.json(response);
 });
 
-itemsRouter.post("/items/voice", upload.single("audio"), async (req: Request, res: Response) => {
+/** Runs Multer and turns upload errors (size limit, malformed form) into logged 400/413s instead of bare 500s. */
+function receiveAudio(req: Request, res: Response, next: NextFunction): void {
+  upload.single("audio")(req, res, (error: unknown) => {
+    if (!error) {
+      next();
+      return;
+    }
+    const isMulter = error instanceof multer.MulterError;
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[ITEMS] audio upload rejected:", isMulter ? error.code : "", message);
+    const status = isMulter && error.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+    res.status(status).json({ error: `Audio upload rejected: ${message}` });
+  });
+}
+
+itemsRouter.post("/items/voice", receiveAudio, async (req: Request, res: Response) => {
   const body = CreateVoiceItemBodySchema.safeParse(req.body ?? {});
   if (!body.success) {
     res.status(400).json({ error: "Invalid request body", details: body.error.issues });
@@ -68,6 +83,9 @@ itemsRouter.post("/items/voice", upload.single("audio"), async (req: Request, re
   let detectedLanguage = requestedLanguage;
 
   if (req.file && req.file.buffer.length > 0) {
+    console.log(
+      `[SARVAM] STT request: ${req.file.mimetype}, ${(req.file.buffer.length / 1024).toFixed(0)}KB, language_code=${requestedLanguage}`,
+    );
     try {
       const stt = await transcribeAudio(req.file.buffer, req.file.mimetype, requestedLanguage);
       transcript = stt.transcript;
@@ -82,7 +100,11 @@ itemsRouter.post("/items/voice", upload.single("audio"), async (req: Request, re
         });
         return;
       }
-      throw error;
+      // Network failure / timeout reaching Sarvam: log it and keep the text fallback usable.
+      const reason = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+      console.error("[SARVAM] STT request did not complete:", reason);
+      res.status(502).json({ error: `Speech-to-text unavailable (${reason}). Try the text box or a sample chip.` });
+      return;
     }
   } else if (textFallback) {
     transcript = textFallback;
