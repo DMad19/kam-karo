@@ -20,6 +20,7 @@ export interface Item {
   stock: number;
   city: CityName;
   sellerLanguage: string;
+  imageUrl?: string;
 }
 
 export interface PublicItemView {
@@ -33,6 +34,7 @@ export interface PublicItemView {
   stock: number;
   city: CityName;
   sellerLanguage: string;
+  imageUrl?: string;
 }
 
 export interface HaggleResponse {

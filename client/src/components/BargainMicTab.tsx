@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { lockDeal, submitHaggle } from "../api/kamKaroApi.ts";
 import { useAudioRecorder } from "../hooks/useAudioRecorder.ts";
+import { getItemDisplayImage } from "../utils/itemImages.ts";
 import {
   formatLanguageName,
   type CityName,
@@ -234,31 +235,38 @@ export function BargainMicTab({
                 key={item.id}
                 type="button"
                 onClick={() => handleSelectItem(item.id)}
-                className={`rounded-xl border p-3 text-left transition cursor-pointer ${
+                className={`rounded-xl border p-2.5 text-left transition cursor-pointer flex items-center gap-3 ${
                   isSelected
                     ? "border-marigold bg-marigold/10 ring-2 ring-marigold/30"
                     : "border-plum/15 bg-canvas/50 hover:border-marigold/60"
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-xs font-bold text-ink line-clamp-2">
-                    {item.title}
-                  </span>
-                  <span className="shrink-0 rounded bg-plum/10 px-1.5 py-0.5 text-[10px] font-bold text-plum">
-                    {item.sellerLanguage}
-                  </span>
-                </div>
-                <div className="mt-2 flex items-center justify-between text-xs tabular-nums">
-                  <strong className="text-plum">₹{item.askPrice}</strong>
-                  <span
-                    className={
-                      item.stock === 0
-                        ? "font-bold text-vermilion"
-                        : "text-ink/70"
-                    }
-                  >
-                    {item.stock === 0 ? "Sold Out" : `${item.stock} left`}
-                  </span>
+                <img
+                  src={getItemDisplayImage(item)}
+                  alt={item.title}
+                  className="h-14 w-16 rounded-lg object-cover border border-marigold/25 shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-1.5">
+                    <span className="text-xs font-bold text-ink line-clamp-2">
+                      {item.title}
+                    </span>
+                    <span className="shrink-0 rounded bg-plum/10 px-1.5 py-0.5 text-[10px] font-bold text-plum">
+                      {item.sellerLanguage}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 flex items-center justify-between text-xs tabular-nums">
+                    <strong className="text-plum">₹{item.askPrice}</strong>
+                    <span
+                      className={
+                        item.stock === 0
+                          ? "font-bold text-vermilion"
+                          : "text-ink/70"
+                      }
+                    >
+                      {item.stock === 0 ? "Sold Out" : `${item.stock} left`}
+                    </span>
+                  </div>
                 </div>
               </button>
             );
@@ -270,26 +278,33 @@ export function BargainMicTab({
         <div className="grid gap-6 lg:grid-cols-12">
           {/* Left: Context, Cross-Lingual Pill, Fair-Price Meter, Haggle Controls */}
           <section className="lg:col-span-6 rounded-2xl bg-[#FFFDF9] p-5 shadow-sm border border-marigold/30 space-y-4">
-            <div className="space-y-2">
-              {showCrossLingualBridge && (
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-gold px-3 py-1 text-xs font-bold text-ink shadow-xs">
-                  <ArrowLeftRight className="h-3.5 w-3.5 text-plum" />
-                  <span>
-                    Listed in {formatLanguageName(selectedItem.sellerLanguage)}{" "}
-                    &lt;-&gt; Negotiating in {formatLanguageName(language)}
-                  </span>
-                </div>
-              )}
+            <div className="flex items-start gap-3.5">
+              <img
+                src={getItemDisplayImage(selectedItem)}
+                alt={selectedItem.title}
+                className="h-20 w-24 rounded-xl object-cover border border-marigold/35 shrink-0 shadow-xs"
+              />
+              <div className="space-y-1.5 min-w-0 flex-1">
+                {showCrossLingualBridge && (
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-gold px-3 py-1 text-xs font-bold text-ink shadow-xs">
+                    <ArrowLeftRight className="h-3.5 w-3.5 text-plum shrink-0" />
+                    <span>
+                      Listed in {formatLanguageName(selectedItem.sellerLanguage)}{" "}
+                      &lt;-&gt; Negotiating in {formatLanguageName(language)}
+                    </span>
+                  </div>
+                )}
 
-              <h3 className="text-lg font-bold text-plum">
-                {selectedItem.title}
-              </h3>
-              <p className="text-xs text-ink/70 tabular-nums">
-                {selectedItem.city} ·{" "}
-                {selectedItem.stock === 0
-                  ? "Out of Stock"
-                  : `${selectedItem.stock} units in stock`}
-              </p>
+                <h3 className="text-lg font-bold text-plum leading-snug">
+                  {selectedItem.title}
+                </h3>
+                <p className="text-xs text-ink/70 tabular-nums">
+                  {selectedItem.city} ·{" "}
+                  {selectedItem.stock === 0
+                    ? "Out of Stock"
+                    : `${selectedItem.stock} units in stock`}
+                </p>
+              </div>
             </div>
 
             <FairPriceMeter

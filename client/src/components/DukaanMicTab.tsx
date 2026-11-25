@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import {
   AlertCircle,
+  Camera,
   CheckCircle2,
   Loader2,
   Lock,
@@ -9,9 +10,14 @@ import {
   Send,
   Sparkles,
   Square,
+  X,
 } from "lucide-react";
 import { createVoiceItem } from "../api/kamKaroApi.ts";
 import { useAudioRecorder } from "../hooks/useAudioRecorder.ts";
+import {
+  getItemDisplayImage,
+  resizePhotoToDataUrl,
+} from "../utils/itemImages.ts";
 import {
   formatLanguageName,
   type CityName,
@@ -60,10 +66,35 @@ export function DukaanMicTab({
 }: DukaanMicTabProps) {
   const recorder = useAudioRecorder();
   const [textFallback, setTextFallback] = useState("");
+  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [createdResult, setCreatedResult] =
     useState<CreateVoiceItemResponse | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+    setSubmitError(null);
+    try {
+      const compressed = await resizePhotoToDataUrl(file);
+      setPhotoDataUrl(compressed);
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : "Could not process selected photo."
+      );
+    }
+  }
+
+  function handleClearPhoto() {
+    setPhotoDataUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
 
   async function submitListing(params: {
     audioBlob?: Blob;
@@ -77,6 +108,7 @@ export function DukaanMicTab({
       const response = await createVoiceItem({
         audioBlob: params.audioBlob,
         textFallback: params.text,
+        photoDataUrl: photoDataUrl ?? undefined,
         languageCode: params.overrideLanguage ?? language,
         city,
       });
@@ -84,6 +116,7 @@ export function DukaanMicTab({
       if (params.text) {
         setTextFallback("");
       }
+      handleClearPhoto();
       await onItemCreated();
     } catch (err) {
       const message =
@@ -178,6 +211,67 @@ export function DukaanMicTab({
           </div>
         )}
 
+        {/* Optional Product Photo Upload */}
+        <div className="rounded-xl border border-dashed border-marigold/50 bg-canvas/70 p-3">
+          <input
+            ref={fileInputRef}
+            id="dukaan-photo-upload"
+            type="file"
+            accept="image/*"
+            onChange={(e) => void handlePhotoChange(e)}
+            className="sr-only"
+          />
+
+          {photoDataUrl ? (
+            <div className="flex items-center gap-3">
+              <img
+                src={photoDataUrl}
+                alt="Selected product preview"
+                className="h-16 w-20 rounded-lg object-cover border border-marigold/40 shrink-0"
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-plum">
+                  Product photo attached
+                </p>
+                <p className="text-[11px] text-ink/70">
+                  Will display in Live Inventory &amp; Bargain Mic
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleClearPhoto}
+                aria-label="Remove product photo"
+                className="inline-flex items-center gap-1 rounded-lg border border-vermilion/30 bg-white px-2.5 py-1 text-[11px] font-semibold text-vermilion hover:bg-vermilion/10 cursor-pointer"
+              >
+                <X className="h-3.5 w-3.5" />
+                Remove
+              </button>
+            </div>
+          ) : (
+            <label
+              htmlFor="dukaan-photo-upload"
+              className="flex items-center justify-between gap-3 cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-marigold/15 text-marigold shrink-0">
+                  <Camera className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-plum block">
+                    Add Product Photo (Optional)
+                  </span>
+                  <span className="text-[11px] text-ink/70">
+                    Snap or upload JPG/PNG before speaking or publishing
+                  </span>
+                </div>
+              </div>
+              <span className="rounded-lg bg-white px-2.5 py-1 text-xs font-bold text-plum border border-plum/20 hover:bg-marigold hover:text-white transition shrink-0">
+                Choose Photo
+              </span>
+            </label>
+          )}
+        </div>
+
         {/* Inline Text Fallback */}
         <form onSubmit={handleTextSubmit} className="flex flex-col gap-2">
           <label
@@ -255,7 +349,12 @@ export function DukaanMicTab({
               &ldquo;{createdResult.transcript}&rdquo;
             </p>
 
-            <div className="rounded-lg bg-white p-3 border border-plum/10 space-y-1.5">
+            <div className="rounded-lg bg-white p-3 border border-plum/10 space-y-2">
+              <img
+                src={getItemDisplayImage(createdResult.item)}
+                alt={createdResult.item.title}
+                className="h-32 w-full rounded-lg object-cover border border-marigold/20"
+              />
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-ink">
                   {createdResult.item.title}
@@ -326,44 +425,52 @@ export function DukaanMicTab({
             {items.map((item) => (
               <article
                 key={item.id}
-                className="rounded-xl border border-plum/15 bg-white p-4 flex flex-col justify-between gap-3 hover:border-marigold transition"
+                className="rounded-xl border border-plum/15 bg-white overflow-hidden flex flex-col justify-between hover:border-marigold transition"
               >
-                <div>
-                  <div className="flex items-start justify-between gap-2">
+                <div className="relative h-36 w-full bg-canvas overflow-hidden border-b border-plum/10">
+                  <img
+                    src={getItemDisplayImage(item)}
+                    alt={item.title}
+                    className="h-full w-full object-cover"
+                  />
+                  <span className="absolute top-2 right-2 rounded-full bg-plum/90 px-2 py-0.5 text-[10px] font-bold text-gold shadow-xs">
+                    {item.sellerLanguage}
+                  </span>
+                </div>
+
+                <div className="p-3.5 flex-1 flex flex-col justify-between gap-3">
+                  <div>
                     <h3 className="text-sm font-bold text-ink leading-snug">
                       {item.title}
                     </h3>
-                    <span className="shrink-0 rounded-full bg-gold/30 px-2 py-0.5 text-[10px] font-bold text-ink">
-                      {item.sellerLanguage}
-                    </span>
+                    <div className="mt-1 flex items-center gap-2 text-xs text-ink/70 tabular-nums">
+                      <span className="uppercase font-semibold text-plum">
+                        {item.category}
+                      </span>
+                      <span>·</span>
+                      <span>{item.city}</span>
+                      <span>·</span>
+                      <span
+                        className={
+                          item.stock === 0
+                            ? "font-bold text-vermilion"
+                            : "font-semibold text-ink"
+                        }
+                      >
+                        {item.stock === 0
+                          ? "Sold Out"
+                          : `${item.stock} left`}
+                      </span>
+                    </div>
                   </div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-ink/70 tabular-nums">
-                    <span className="uppercase font-semibold text-plum">
-                      {item.category}
-                    </span>
-                    <span>·</span>
-                    <span>{item.city}</span>
-                    <span>·</span>
-                    <span
-                      className={
-                        item.stock === 0
-                          ? "font-bold text-vermilion"
-                          : "font-semibold text-ink"
-                      }
-                    >
-                      {item.stock === 0
-                        ? "Sold Out"
-                        : `${item.stock} left`}
-                    </span>
-                  </div>
-                </div>
 
-                <FairPriceMeter
-                  askPrice={item.askPrice}
-                  adjustedBenchmark={item.adjustedBenchmark}
-                  markupPct={item.markupPct}
-                  fairPriceStatus={item.fairPriceStatus}
-                />
+                  <FairPriceMeter
+                    askPrice={item.askPrice}
+                    adjustedBenchmark={item.adjustedBenchmark}
+                    markupPct={item.markupPct}
+                    fairPriceStatus={item.fairPriceStatus}
+                  />
+                </div>
               </article>
             ))}
           </div>

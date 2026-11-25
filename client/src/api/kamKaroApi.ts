@@ -9,6 +9,10 @@ import type {
   SimulateSurgeResponse,
   SupportedLanguage,
 } from "../types/index.ts";
+import {
+  getItemDisplayImage,
+  rememberItemPhoto,
+} from "../utils/itemImages.ts";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
@@ -33,12 +37,20 @@ async function parseJsonOrThrow<T>(response: Response): Promise<T> {
 export async function getItems(city: CityName): Promise<GetItemsResponse> {
   const params = new URLSearchParams({ city });
   const response = await fetch(`${API_BASE_URL}/api/items?${params.toString()}`);
-  return parseJsonOrThrow<GetItemsResponse>(response);
+  const data = await parseJsonOrThrow<GetItemsResponse>(response);
+  return {
+    ...data,
+    items: data.items.map((item) => ({
+      ...item,
+      imageUrl: getItemDisplayImage(item),
+    })),
+  };
 }
 
 export async function createVoiceItem(params: {
   audioBlob?: Blob;
   textFallback?: string;
+  photoDataUrl?: string;
   languageCode: SupportedLanguage;
   city: CityName;
 }): Promise<CreateVoiceItemResponse> {
@@ -53,12 +65,28 @@ export async function createVoiceItem(params: {
   if (params.textFallback && params.textFallback.trim().length > 0) {
     formData.append("textFallback", params.textFallback.trim());
   }
+  if (params.photoDataUrl) {
+    formData.append("imageUrl", params.photoDataUrl);
+  }
 
   const response = await fetch(`${API_BASE_URL}/api/items/voice`, {
     method: "POST",
     body: formData,
   });
-  return parseJsonOrThrow<CreateVoiceItemResponse>(response);
+  const data = await parseJsonOrThrow<CreateVoiceItemResponse>(response);
+  if (params.photoDataUrl) {
+    rememberItemPhoto(data.item.id, params.photoDataUrl);
+  }
+  return {
+    ...data,
+    item: {
+      ...data.item,
+      imageUrl:
+        data.item.imageUrl ??
+        params.photoDataUrl ??
+        getItemDisplayImage(data.item),
+    },
+  };
 }
 
 export async function submitHaggle(params: {
