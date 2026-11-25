@@ -9,7 +9,8 @@
   "scripts": {
     "test": "tsx tests/guardrails.test.ts",
     "dev": "tsx watch src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "reset-data": "node -e \"require('node:fs').rmSync('data',{recursive:true,force:true});console.log('[STORE] server/data cleared — restart the server to reload the 3 seed items')\""
   },
   "keywords": [],
   "author": "",

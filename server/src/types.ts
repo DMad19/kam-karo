@@ -23,6 +23,10 @@ export interface Item {
   stock: number;
   city: CityName;
   sellerLanguage: string;
+  /** Path of the seller photo, e.g. "/api/items/item_04/photo" (absolutized by routes). */
+  imageUrl?: string;
+  /** Server-only file name inside server/data/photos. */
+  photoFile?: string;
 }
 
 // Buyer-safe projection returned by GET /api/items
@@ -37,13 +41,18 @@ export interface PublicItemView {
   stock: number;
   city: CityName;
   sellerLanguage: string;
+  imageUrl?: string;
 }
 
 export interface HaggleResponse {
+  /** The buyer's line in their haggling persona's voice (Polite Aunty / Savage Local), same offer as the user's. */
   buyerTranscript: string;
+  /** Exactly what the user said or typed. */
+  buyerOriginalText: string;
   detectedLanguage: string;
   sellerLanguage: string;
   crossLingualBridge: boolean;
+  /** The BUYER's haggling persona (Flagsmith A/B). The shopkeeper always speaks neutrally. */
   personaUsed: HagglingPersona;
   shopkeeperReplyText: string;
   counterOfferPrice: number;

@@ -38,7 +38,10 @@ export interface PublicItemView {
 }
 
 export interface HaggleResponse {
+  /** Buyer's line re-voiced in their haggling persona (same offer as the user's). */
   buyerTranscript: string;
+  /** Exactly what the user said or typed. */
+  buyerOriginalText?: string;
   detectedLanguage: string;
   sellerLanguage: string;
   crossLingualBridge: boolean;
