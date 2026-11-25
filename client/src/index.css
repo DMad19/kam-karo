@@ -1,18 +1,33 @@
 @import "tailwindcss";
 
 @theme {
-  --color-marigold: #F28C28;
-  --color-gold: #F7C548;
-  --color-vermilion: #C8102E;
-  --color-plum: #6A1B4D;
-  --color-canvas: #FFF8F1;
-  --color-ink: #1F1219;
+  --color-marigold: #E67612;
+  --color-gold: #F5BC38;
+  --color-vermilion: #B81D24;
+  --color-plum: #4A1C1A;
+  --color-canvas: #FFF6E5;
+  --color-ink: #26130D;
 }
 
 :root {
-  --color-1: #F28C28;
-  --color-2: #F7C548;
-  --color-3: #C8102E;
-  --color-4: #6A1B4D;
-  --color-5: #FFFFFF;
+  --color-1: #E67612;
+  --color-2: #F5BC38;
+  --color-3: #B81D24;
+  --color-4: #4A1C1A;
+  --color-5: #FFFDF9;
+}
+
+.diwali-toran-strip {
+  height: 6px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    #E67612 0px,
+    #E67612 18px,
+    #F5BC38 18px,
+    #F5BC38 36px,
+    #B81D24 36px,
+    #B81D24 54px,
+    #15803D 54px,
+    #15803D 72px
+  );
 }

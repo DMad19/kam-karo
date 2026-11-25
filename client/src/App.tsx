@@ -98,7 +98,7 @@ export function App() {
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 space-y-5">
         {/* 2-Tab Switcher */}
-        <div className="inline-flex rounded-xl bg-white p-1 shadow-xs border border-plum/15">
+        <div className="inline-flex rounded-xl bg-[#FFFDF9] p-1 shadow-xs border border-marigold/30">
           <button
             type="button"
             onClick={() => setActiveTab("dukaan")}

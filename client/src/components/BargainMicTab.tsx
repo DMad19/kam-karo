@@ -205,7 +205,7 @@ export function BargainMicTab({
   return (
     <div className="space-y-5">
       {/* Selectable Item Strip */}
-      <section className="rounded-2xl bg-white p-4 shadow-sm border border-plum/10">
+      <section className="rounded-2xl bg-[#FFFDF9] p-4 shadow-sm border border-marigold/30">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <h2 className="text-sm font-bold uppercase tracking-wider text-plum">
             Select a Diwali Stall Item
@@ -269,7 +269,7 @@ export function BargainMicTab({
       {selectedItem && (
         <div className="grid gap-6 lg:grid-cols-12">
           {/* Left: Context, Cross-Lingual Pill, Fair-Price Meter, Haggle Controls */}
-          <section className="lg:col-span-6 rounded-2xl bg-white p-5 shadow-sm border border-plum/10 space-y-4">
+          <section className="lg:col-span-6 rounded-2xl bg-[#FFFDF9] p-5 shadow-sm border border-marigold/30 space-y-4">
             <div className="space-y-2">
               {showCrossLingualBridge && (
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-gold px-3 py-1 text-xs font-bold text-ink shadow-xs">
@@ -447,7 +447,7 @@ export function BargainMicTab({
           </section>
 
           {/* Right: Live Shopkeeper Response + Audio Playback + Lock Deal */}
-          <section className="lg:col-span-6 rounded-2xl bg-white p-5 shadow-sm border border-plum/10 flex flex-col justify-between gap-4">
+          <section className="lg:col-span-6 rounded-2xl bg-[#FFFDF9] p-5 shadow-sm border border-marigold/30 flex flex-col justify-between gap-4">
             <audio ref={audioRef} className="hidden" />
 
             <div className="space-y-4">

@@ -26,23 +26,23 @@ export function TopBar({
   surgeLiteMode,
 }: TopBarProps) {
   return (
-    <header className="bg-plum text-white shadow-md border-b-4 border-marigold">
+    <header className="bg-plum text-white shadow-md">
       <div className="mx-auto max-w-6xl px-4 py-3.5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-marigold text-ink shadow-sm">
-            <Flame className="h-5 w-5" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-marigold text-white shadow-md ring-2 ring-gold/70">
+            <Flame className="h-6 w-6 fill-gold text-gold" />
           </div>
           <div>
             <div className="flex items-baseline gap-2 flex-wrap">
-              <h1 className="text-xl font-bold tracking-tight text-white">
+              <h1 className="text-xl font-extrabold tracking-tight text-gold">
                 Kam Karo
               </h1>
-              <span className="text-xs font-medium text-gold">
+              <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-canvas border border-gold/30">
                 by Coffee and Chaos
               </span>
             </div>
-            <p className="text-xs text-white/80">
-              Voice-First Multilingual Diwali Bazaar
+            <p className="text-xs text-canvas/85">
+              Voice-First Multilingual Diwali Bazaar · Bengaluru &amp; Beyond
             </p>
           </div>
         </div>
@@ -104,6 +104,7 @@ export function TopBar({
           )}
         </div>
       </div>
+      <div className="diwali-toran-strip" aria-hidden="true" />
     </header>
   );
 }

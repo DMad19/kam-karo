@@ -115,7 +115,7 @@ export function DukaanMicTab({
   return (
     <div className="grid gap-6 lg:grid-cols-12">
       {/* Left: Voice + Text Seller Input */}
-      <section className="lg:col-span-5 rounded-2xl bg-white p-5 shadow-sm border border-plum/10 flex flex-col gap-4">
+      <section className="lg:col-span-5 rounded-2xl bg-[#FFFDF9] p-5 shadow-sm border border-marigold/30 flex flex-col gap-4">
         <div>
           <span className="inline-flex items-center gap-1 rounded-full bg-gold/30 px-2.5 py-0.5 text-[11px] font-bold text-ink">
             <Sparkles className="h-3 w-3 text-plum" />
@@ -300,7 +300,7 @@ export function DukaanMicTab({
       </section>
 
       {/* Right: Live Inventory Grid */}
-      <section className="lg:col-span-7 rounded-2xl bg-white p-5 shadow-sm border border-plum/10 flex flex-col gap-4">
+      <section className="lg:col-span-7 rounded-2xl bg-[#FFFDF9] p-5 shadow-sm border border-marigold/30 flex flex-col gap-4">
         <div className="flex items-center justify-between gap-2">
           <div>
             <h2 className="text-lg font-bold text-plum flex items-center gap-2">

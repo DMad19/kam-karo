@@ -93,7 +93,8 @@ export function OpsConsole({
   }
 
   return (
-    <footer className="bg-plum text-white border-t-4 border-gold">
+    <footer className="bg-plum text-white">
+      <div className="diwali-toran-strip" aria-hidden="true" />
       <div className="mx-auto max-w-6xl px-4 py-5 space-y-4">
         {/* Header Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3">
