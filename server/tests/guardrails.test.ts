@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { clampCounterOffer, computeFairPrice } from "../src/pricing.js";
 import { getItem, listItems, lockDeal, resetStore, toPublicItemView } from "../src/store.js";
 import { extractJsonObject, fallbackListing } from "../src/services/sarvamSellerService.js";
+import { buildDiwaliSurgePayload } from "../src/services/nudgebeeService.js";
 
 let passed = 0;
 function test(name: string, fn: () => void): void {
@@ -88,6 +89,18 @@ test("Seller fallback keeps floor below ask", () => {
   const listing = fallbackListing("Kaju katli 1 kilo, 1,200 rupees");
   assert.equal(listing.askPrice, 1200);
   assert.ok(listing.floorPrice <= listing.askPrice);
+});
+
+test("NudgeBee diwali_surge payload has the exact contract", () => {
+  const payload = buildDiwaliSurgePayload("Bengaluru", "item_kaju_katli", 12);
+  assert.equal(payload.event, "diwali_surge");
+  assert.equal(payload.service, "kam-karo-api");
+  assert.equal(payload.city, "Bengaluru");
+  assert.equal(payload.item_id, "item_kaju_katli");
+  assert.equal(payload.stock_remaining, 12);
+  assert.equal(payload.tts_p95_latency_ms, 4300);
+  assert.equal(payload.error_rate, 0.19);
+  assert.equal(payload.recommended_action, "enable_surge_lite_mode");
 });
 
 console.log(`PASS — ${passed} guardrail tests`);
