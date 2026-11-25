@@ -11,7 +11,7 @@ India's festive markets run on voice, bargaining and five languages at the same 
 ```text
                          DATA PLANE (per request)
  ┌──────────────────────┐        ┌────────────────────────────────────────────┐
- │  React 19 + Vite 8   │  HTTP  │  Express 5 BFF  (server/, :8000)           │
+ │  React 19 + Vite 8   │  HTTP  │  Express 5 BFF  (server/, :4000)           │
  │  client/ (:5173)     │──────▶ │                                            │
  │  • Dukaan Mic (sell) │        │  POST /api/items/voice ─▶ Sarvam saaras:v4 │──▶ STT (codemix)
  │  • Bargain Mic (buy) │        │                        ─▶ sarvam-105b      │──▶ listing JSON
@@ -52,13 +52,13 @@ cp .env.example server/.env   # then fill in your keys (see below)
 npm run install:all && npm run dev
 ```
 
-- Web: http://localhost:5173 · API: http://localhost:8000/api/health
+- Web: http://localhost:5173 · API: http://localhost:4000/api/health
 
 ### `server/.env`
 
 | Variable | Purpose |
 |---|---|
-| `PORT` / `FRONTEND_ORIGIN` | API port (default `8000`) and CORS origin (default `http://localhost:5173`) |
+| `PORT` / `FRONTEND_ORIGIN` | API port (default `4000`) and CORS origin (default `http://localhost:5173`) |
 | `SARVAM_API_KEY` | Sarvam AI subscription key |
 | `SARVAM_SPEAKER_*` | Verified `bulbul:v4-flash` speaker IDs per language/persona |
 | `FLAGSMITH_SERVER_KEY` | Flagsmith server-side environment key (`ser.…`) |
@@ -74,7 +74,7 @@ Secrets live only in `server/.env`, which is gitignored. The frontend never rece
 cp infra/nudgebee/.env.example infra/nudgebee/.env   # fill NB_ACCESS_KEY / NB_ACCESS_SECRET
 docker compose -f infra/nudgebee/docker-compose.yaml up -d
 
-# Self-hosted Flagsmith (backup to Flagsmith Cloud). Runs on :8100 because Express owns :8000.
+# Self-hosted Flagsmith (local Docker). The override in infra/flagsmith maps it to :8100.
 (cd infra/flagsmith && docker compose up -d)          # UI + API: http://localhost:8100
 # then set FLAGSMITH_API_URL=http://localhost:8100/api/v1/identities/ in server/.env
 ```
@@ -106,8 +106,8 @@ npx tsx harness/verify_api.ts               # live API checks (needs `npm run de
 | Method | Route | Description |
 |---|---|---|
 | `GET` | `/api/health` | Liveness |
-| `GET` | `/api/items?sessionId=&city=` | Buyer-safe inventory with city-adjusted Fair-Price Meter (no `floorPrice`) |
-| `POST` | `/api/items/voice` | Multipart `audio` **or** `textFallback` + `sellerLanguage` → `{ transcript, item }` |
+| `GET` | `/api/items?city=` | `{ items, cityMultiplier, cityLabel }`: buyer-safe inventory with city-adjusted Fair-Price Meter (no `floorPrice`) |
+| `POST` | `/api/items/voice` | Multipart `audio` **or** `textFallback`, plus `language_code` (or `unknown`) and `city` → `{ transcript, detectedLanguage, item }` |
 | `POST` | `/api/haggle` | Voice/text buyer offer → clamped counter-offer + base64 WAV (null in Surge Lite) |
 | `POST` | `/api/deals/lock` | Atomically decrements stock, records the A/B persona's deal and revenue |
 | `GET` | `/api/flags?sessionId=&city=` | Live Flagsmith flags + A/B scoreboard + ops log |
