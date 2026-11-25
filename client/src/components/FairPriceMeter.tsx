@@ -5,6 +5,8 @@ interface FairPriceMeterProps {
   adjustedBenchmark: number;
   markupPct: number;
   fairPriceStatus: FairPriceStatus;
+  /** Label for the price being judged: "Ask Price" before haggling, the shopkeeper's quote after. */
+  priceLabel?: string;
 }
 
 const STATUS_META: Record<
@@ -33,6 +35,7 @@ export function FairPriceMeter({
   adjustedBenchmark,
   markupPct,
   fairPriceStatus,
+  priceLabel = "Ask Price",
 }: FairPriceMeterProps) {
   const meta = STATUS_META[fairPriceStatus];
   // Scale bar smoothly from 0% markup (35% width) up to +50% markup (100% width)
@@ -69,7 +72,7 @@ export function FairPriceMeter({
 
       <div className="mt-2 flex items-center justify-between text-xs text-ink/80 tabular-nums">
         <span>
-          Ask Price: <strong className="text-ink">₹{askPrice}</strong>
+          {priceLabel}: <strong className="text-ink">₹{askPrice}</strong>
         </span>
         <span>
           City Fair Benchmark:{" "}

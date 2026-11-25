@@ -103,6 +103,30 @@ export function BargainMicTab({
     }
   }, [haggleResult]);
 
+  // Diwali 8 PM Rush: ask the server for the fixed fair price (text-only, ~20ms) so the
+  // Instant Buy button shows and locks exactly the price the shopkeeper quotes.
+  const selectedItemIdForQuote = selectedItem?.id ?? null;
+  useEffect(() => {
+    if (!surgeLiteMode || !selectedItemIdForQuote) {
+      return;
+    }
+    let cancelled = false;
+    setIsHaggling(true);
+    submitHaggle({ itemId: selectedItemIdForQuote, sessionId, city, languageCode: language })
+      .then((quote) => {
+        if (!cancelled) setHaggleResult(quote);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setErrorMsg(err instanceof Error ? err.message : "Could not load the fair price.");
+      })
+      .finally(() => {
+        if (!cancelled) setIsHaggling(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [surgeLiteMode, selectedItemIdForQuote, sessionId, city, language]);
+
   function handleSelectItem(itemId: string) {
     setSelectedItemId(itemId);
     setHaggleResult(null);
@@ -214,7 +238,7 @@ export function BargainMicTab({
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1 rounded-full bg-gold/35 px-3 py-1 text-xs font-bold text-ink">
               <Sparkles className="h-3.5 w-3.5 text-plum" />
-              Persona: {formatPersonaLabel(persona)}
+              Your haggling style: {formatPersonaLabel(persona)}
             </span>
             <button
               type="button"
@@ -307,11 +331,19 @@ export function BargainMicTab({
               </div>
             </div>
 
+            {/* After a haggle the meter judges the shopkeeper's current price, not the original ask. */}
             <FairPriceMeter
-              askPrice={selectedItem.askPrice}
+              askPrice={haggleResult?.counterOfferPrice ?? selectedItem.askPrice}
               adjustedBenchmark={selectedItem.adjustedBenchmark}
-              markupPct={selectedItem.markupPct}
-              fairPriceStatus={selectedItem.fairPriceStatus}
+              markupPct={haggleResult?.markupPct ?? selectedItem.markupPct}
+              fairPriceStatus={haggleResult?.fairPriceStatus ?? selectedItem.fairPriceStatus}
+              priceLabel={
+                haggleResult
+                  ? haggleResult.surgeLiteMode
+                    ? "Fixed Fair Price"
+                    : "Shopkeeper's Price"
+                  : "Ask Price"
+              }
             />
 
             {surgeLiteMode ? (
@@ -331,14 +363,18 @@ export function BargainMicTab({
                 </div>
                 <button
                   type="button"
-                  disabled={isLocking || isOutOfStock}
-                  onClick={() =>
-                    void handleLockDeal(selectedItem.adjustedBenchmark)
-                  }
+                  disabled={isLocking || isOutOfStock || !haggleResult?.surgeLiteMode}
+                  onClick={() => {
+                    if (haggleResult?.surgeLiteMode) {
+                      void handleLockDeal(haggleResult.counterOfferPrice);
+                    }
+                  }}
                   className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-marigold px-4 py-3 text-sm font-bold text-white shadow-sm hover:brightness-95 disabled:opacity-50 cursor-pointer"
                 >
                   <Zap className="h-4 w-4" />
-                  Instant Buy at Fair Price (₹{selectedItem.adjustedBenchmark})
+                  {haggleResult?.surgeLiteMode
+                    ? `Instant Buy at Fair Price (₹${haggleResult.counterOfferPrice})`
+                    : "Loading fair price…"}
                 </button>
               </div>
             ) : (
@@ -389,7 +425,7 @@ export function BargainMicTab({
                           Speak Your Counter-Offer ({formatLanguageName(language)})
                         </p>
                         <p className="text-ink/70">
-                          25s mic cap · uses {formatPersonaLabel(persona)}
+                          25s mic cap · you haggle as {formatPersonaLabel(persona)}
                         </p>
                       </>
                     )}
@@ -472,7 +508,7 @@ export function BargainMicTab({
                 </h3>
                 {haggleResult && (
                   <span className="rounded-full bg-gold/30 px-2.5 py-0.5 text-[11px] font-bold text-ink">
-                    {formatPersonaLabel(haggleResult.personaUsed)}
+                    Buyer: {formatPersonaLabel(haggleResult.personaUsed)}
                   </span>
                 )}
               </div>
@@ -487,11 +523,20 @@ export function BargainMicTab({
                 <div className="space-y-3">
                   <div className="rounded-xl bg-canvas p-3.5 border border-plum/10">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-ink/55">
-                      Buyer Said ({haggleResult.detectedLanguage})
+                      Buyer ({formatPersonaLabel(haggleResult.personaUsed)} ·{" "}
+                      {haggleResult.detectedLanguage})
                     </span>
                     <p className="mt-1 text-sm text-ink">
                       &ldquo;{haggleResult.buyerTranscript}&rdquo;
                     </p>
+                    {haggleResult.buyerOriginalText &&
+                      haggleResult.buyerOriginalText !==
+                        haggleResult.buyerTranscript && (
+                        <p className="mt-1.5 text-[11px] text-ink/55">
+                          You said: &ldquo;{haggleResult.buyerOriginalText}
+                          &rdquo;
+                        </p>
+                      )}
                   </div>
 
                   <div className="rounded-xl bg-plum/5 p-4 border border-plum/20 space-y-2.5">

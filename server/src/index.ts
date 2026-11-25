@@ -9,7 +9,11 @@ import { flagsRouter } from "./routes/flags.js";
 import { haggleRouter } from "./routes/haggle.js";
 import { itemsRouter } from "./routes/items.js";
 import { opsRouter } from "./routes/ops.js";
+import { enableStorePersistence } from "./store.js";
 import type { HealthResponse } from "./types.js";
+
+// Persist listings, stock and A/B stats to server/data/store.json so restarts keep them.
+enableStorePersistence();
 
 export const app = express();
 
