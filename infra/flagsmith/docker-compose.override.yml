@@ -1,0 +1,18 @@
+# Kam Karo override: Express owns :8000, so self-hosted Flagsmith moves to :8100 (UI + API) / :8101 (task processor).
+x-kam-karo-env: &kam-karo-env
+  FLAGSMITH_DOMAIN: localhost:8100
+
+services:
+  migrate-db:
+    environment:
+      <<: *kam-karo-env
+  flagsmith:
+    environment:
+      <<: *kam-karo-env
+    ports: !override
+      - 8100:8000
+  flagsmith-task-processor:
+    environment:
+      <<: *kam-karo-env
+    ports: !override
+      - 8101:8000
