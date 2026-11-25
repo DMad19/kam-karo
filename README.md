@@ -67,6 +67,18 @@ npm run install:all && npm run dev
 
 Secrets live only in `server/.env`, which is gitignored. The frontend never receives API keys.
 
+## Optional local infrastructure (`infra/`)
+
+```bash
+# NudgeBee forager agent (connects this machine to NudgeBee Cloud via wss relay)
+cp infra/nudgebee/.env.example infra/nudgebee/.env   # fill NB_ACCESS_KEY / NB_ACCESS_SECRET
+docker compose -f infra/nudgebee/docker-compose.yaml up -d
+
+# Self-hosted Flagsmith (backup to Flagsmith Cloud). Runs on :8100 because Express owns :8000.
+(cd infra/flagsmith && docker compose up -d)          # UI + API: http://localhost:8100
+# then set FLAGSMITH_API_URL=http://localhost:8100/api/v1/identities/ in server/.env
+```
+
 ## Verify
 
 ```bash
