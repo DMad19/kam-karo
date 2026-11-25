@@ -1,59 +1,52 @@
 // Fair-Price Meter math + Floor-Price clamp. Pure functions only — no I/O.
-
-export type FairPriceVerdict = "fair" | "stretch" | "overpriced";
+import type { FairPriceStatus } from "./types.js";
 
 export interface FairPriceResult {
-  askPrice: number;
   adjustedBenchmark: number;
   markupPct: number;
-  verdict: FairPriceVerdict;
+  fairPriceStatus: FairPriceStatus;
 }
 
 /** Markup thresholds (percent over the city-adjusted benchmark). */
-export const FAIR_MAX_MARKUP_PCT = 10;
-export const STRETCH_MAX_MARKUP_PCT = 25;
-
-function toFiniteOr(value: number, fallback: number): number {
-  return Number.isFinite(value) ? value : fallback;
-}
+export const GREEN_MAX_MARKUP_PCT = 10;
+export const YELLOW_MAX_MARKUP_PCT = 25;
 
 /**
  * Compares the seller's ask against the benchmark scaled by the live
  * Flagsmith `city_fair_price_config.multiplier`.
- * Green (fair) <= 10% markup, Yellow (stretch) <= 25%, Red (overpriced) above.
+ * GREEN <= 10% markup, YELLOW <= 25%, RED above.
  */
 export function computeFairPrice(
   askPrice: number,
   benchmarkPrice: number,
   cityMultiplier: number,
 ): FairPriceResult {
-  const ask = Math.max(0, toFiniteOr(askPrice, 0));
-  const multiplier = toFiniteOr(cityMultiplier, 1) > 0 ? toFiniteOr(cityMultiplier, 1) : 1;
-  const adjustedBenchmark = Math.round(Math.max(0, toFiniteOr(benchmarkPrice, 0)) * multiplier);
+  const safeAsk = Number.isFinite(askPrice) && askPrice > 0 ? askPrice : 0;
+  const safeMultiplier = Number.isFinite(cityMultiplier) && cityMultiplier > 0 ? cityMultiplier : 1.0;
+  const safeBenchmark = Number.isFinite(benchmarkPrice) && benchmarkPrice > 0 ? benchmarkPrice : 1;
+  const adjustedBenchmark = Math.max(1, Math.round(safeBenchmark * safeMultiplier));
+  const markupPct = Math.round(((safeAsk - adjustedBenchmark) / adjustedBenchmark) * 1000) / 10;
 
-  const markupPct =
-    adjustedBenchmark > 0
-      ? Math.round(((ask - adjustedBenchmark) / adjustedBenchmark) * 1000) / 10
-      : 0;
+  let fairPriceStatus: FairPriceStatus = "RED";
+  if (markupPct <= GREEN_MAX_MARKUP_PCT) {
+    fairPriceStatus = "GREEN";
+  } else if (markupPct <= YELLOW_MAX_MARKUP_PCT) {
+    fairPriceStatus = "YELLOW";
+  }
 
-  const verdict: FairPriceVerdict =
-    markupPct <= FAIR_MAX_MARKUP_PCT
-      ? "fair"
-      : markupPct <= STRETCH_MAX_MARKUP_PCT
-        ? "stretch"
-        : "overpriced";
-
-  return { askPrice: ask, adjustedBenchmark, markupPct, verdict };
+  return { adjustedBenchmark, markupPct, fairPriceStatus };
 }
 
 /**
- * Deterministic guardrail for LLM counter-offers:
+ * Deterministic prompt-injection guardrail for LLM counter-offers:
  * always returns an integer with floorPrice <= offer <= askPrice.
- * NaN / Infinity / non-numbers collapse to floorPrice.
+ * NaN / ±Infinity collapse to floorPrice.
  */
 export function clampCounterOffer(llmOffer: number, floorPrice: number, askPrice: number): number {
-  const floor = Math.round(toFiniteOr(floorPrice, 0));
-  const ceiling = Math.max(floor, Math.round(toFiniteOr(askPrice, floor)));
-  if (typeof llmOffer !== "number" || !Number.isFinite(llmOffer)) return floor;
-  return Math.min(ceiling, Math.max(floor, Math.round(llmOffer)));
+  const floor = Math.round(Number.isFinite(floorPrice) ? floorPrice : 0);
+  const ceiling = Math.max(floor, Math.round(Number.isFinite(askPrice) ? askPrice : floor));
+  if (!Number.isFinite(llmOffer)) {
+    return floor;
+  }
+  return Math.max(floor, Math.min(ceiling, Math.round(llmOffer)));
 }

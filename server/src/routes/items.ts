@@ -1,82 +1,80 @@
 // GET /api/items and POST /api/items/voice
 import { Router, type Request, type Response } from "express";
 import multer from "multer";
-import { z } from "zod";
 import { evaluateBuyerFlags } from "../services/flagsmithService.js";
-import { transcribeAudio, SarvamSttError } from "../services/sarvamSttService.js";
 import { extractSellerListing } from "../services/sarvamSellerService.js";
+import { SarvamSttError, transcribeAudio } from "../services/sarvamSttService.js";
+import { addItem, appendOpsLog, getItems, nextItemId, toPublicItemView } from "../store.js";
 import {
-  addItem,
-  appendOpsLog,
-  isLanguageCode,
-  listItems,
-  toPublicItemView,
+  CreateVoiceItemBodySchema,
+  GetItemsQuerySchema,
+  type CityFairPriceConfig,
+  type CityName,
+  type CreateVoiceItemResponse,
+  type GetItemsResponse,
   type Item,
-  type LanguageCode,
-  type PublicItemView,
-} from "../store.js";
+} from "../types.js";
 
-const router = Router();
+export const itemsRouter = Router();
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024, files: 1 },
 });
 
-const listQuerySchema = z.object({
-  sessionId: z.string().trim().min(1).max(100).catch("anonymous"),
-  city: z.string().trim().min(1).max(60).catch("Bengaluru"),
-});
+const CATALOG_IDENTITY = "catalog_viewer";
+const DEFAULT_CITY_CONFIG: CityFairPriceConfig = { multiplier: 1.0, label: "Standard" };
 
-const voiceBodySchema = z.object({
-  textFallback: z.string().trim().max(1000).optional(),
-  sellerLanguage: z.string().optional(),
-  languageCode: z.string().optional(),
-});
-
-/** Seller's own listing preview: includes floorPrice so the UI can mark it "Hidden from Buyer". */
-export interface SellerListingView extends PublicItemView {
-  floorPrice: number;
+/** Live Flagsmith city multiplier; falls back to 1.0 if Flagsmith is unreachable (TDD §5). */
+async function resolveCityConfig(sessionId: string, city: CityName): Promise<CityFairPriceConfig> {
+  try {
+    const flags = await evaluateBuyerFlags(sessionId, city);
+    const { multiplier, label } = flags.city_fair_price_config;
+    return Number.isFinite(multiplier) && multiplier > 0 ? { multiplier, label } : DEFAULT_CITY_CONFIG;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error("[FLAGSMITH] city config unavailable, using multiplier 1.0:", reason);
+    return DEFAULT_CITY_CONFIG;
+  }
 }
 
-export interface VoiceListingResponse {
-  transcript: string;
-  item: SellerListingView;
-  extractionSource: "sarvam" | "fallback";
-}
+itemsRouter.get("/items", async (req: Request, res: Response) => {
+  const query = GetItemsQuerySchema.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: "Invalid query", details: query.error.issues });
+    return;
+  }
+  const sessionId =
+    typeof req.query.sessionId === "string" && req.query.sessionId.trim() ? req.query.sessionId.trim() : CATALOG_IDENTITY;
 
-function toSellerListingView(item: Item): SellerListingView {
-  return { ...toPublicItemView(item), floorPrice: item.floorPrice };
-}
-
-router.get("/items", async (req: Request, res: Response<PublicItemView[]>) => {
-  const { sessionId, city } = listQuerySchema.parse(req.query);
-  const flags = await evaluateBuyerFlags(sessionId, city);
-  const multiplier = flags.cityFairPriceConfig.multiplier;
-  res.json(listItems().map((item) => toPublicItemView(item, multiplier)));
+  const cityConfig = await resolveCityConfig(sessionId, query.data.city);
+  const response: GetItemsResponse = {
+    items: getItems().map((item) => toPublicItemView(item, cityConfig.multiplier)),
+    cityMultiplier: cityConfig.multiplier,
+    cityLabel: cityConfig.label,
+  };
+  res.json(response);
 });
 
-router.post("/items/voice", upload.single("audio"), async (req: Request, res: Response) => {
-  const body = voiceBodySchema.safeParse(req.body ?? {});
+itemsRouter.post("/items/voice", upload.single("audio"), async (req: Request, res: Response) => {
+  const body = CreateVoiceItemBodySchema.safeParse(req.body ?? {});
   if (!body.success) {
     res.status(400).json({ error: "Invalid request body", details: body.error.issues });
     return;
   }
-
-  const requestedLanguage = body.data.sellerLanguage ?? body.data.languageCode;
-  const sellerLanguage: LanguageCode = isLanguageCode(requestedLanguage) ? requestedLanguage : "hi-IN";
+  const { textFallback, language_code: requestedLanguage, city } = body.data;
 
   let transcript = "";
-  let detectedLanguage: string | null = null;
+  let detectedLanguage = requestedLanguage;
 
   if (req.file && req.file.buffer.length > 0) {
     try {
-      const stt = await transcribeAudio(req.file.buffer, req.file.mimetype, sellerLanguage);
+      const stt = await transcribeAudio(req.file.buffer, req.file.mimetype, requestedLanguage);
       transcript = stt.transcript;
-      detectedLanguage = stt.languageCode;
+      detectedLanguage = stt.detectedLanguage;
     } catch (error) {
       if (error instanceof SarvamSttError) {
-        console.error("[items/voice] Sarvam STT error:", error.statusCode, error.responseBody);
+        console.error("[SARVAM] STT error:", error.statusCode, error.responseBody.slice(0, 500));
         res.status(502).json({
           error: "Speech-to-text failed. Try the text box or a sample chip.",
           sarvamStatus: error.statusCode,
@@ -86,8 +84,8 @@ router.post("/items/voice", upload.single("audio"), async (req: Request, res: Re
       }
       throw error;
     }
-  } else if (body.data.textFallback) {
-    transcript = body.data.textFallback;
+  } else if (textFallback) {
+    transcript = textFallback;
   }
 
   if (!transcript) {
@@ -95,17 +93,15 @@ router.post("/items/voice", upload.single("audio"), async (req: Request, res: Re
     return;
   }
 
-  const listingLanguage: LanguageCode = isLanguageCode(detectedLanguage) ? detectedLanguage : sellerLanguage;
-  const { listing, source } = await extractSellerListing(transcript, listingLanguage);
-  const item = addItem({ ...listing, sellerLanguage: listingLanguage });
-  appendOpsLog("ITEM_LISTED", `New listing "${item.title}" at ₹${item.askPrice} (${listingLanguage}, via ${source})`);
+  const sellerLanguage = detectedLanguage === "unknown" ? requestedLanguage : detectedLanguage;
+  const { listing, source } = await extractSellerListing(transcript, sellerLanguage);
+  const item: Item = { id: nextItemId(), ...listing, city, sellerLanguage };
+  addItem(item);
+  appendOpsLog("INFO", `New listing "${item.title}" at ₹${item.askPrice} in ${city} (${sellerLanguage}, via ${source})`);
 
-  const response: VoiceListingResponse = {
-    transcript,
-    item: toSellerListingView(item),
-    extractionSource: source,
-  };
+  // Seller's own preview: includes floorPrice so Tab 1 can mark it "Hidden from Buyer".
+  const response: CreateVoiceItemResponse = { transcript, detectedLanguage, item };
   res.status(201).json(response);
 });
 
-export default router;
+export default itemsRouter;

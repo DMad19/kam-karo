@@ -1,17 +1,7 @@
 // Real NudgeBee Cloud workflow webhook poster (no mocks).
 // NudgeBee automation: Webhook trigger (event == "diwali_surge") -> Core/Approval -> Run Script (Flagsmith PATCH surge_lite_mode=true).
-
-export interface DiwaliSurgePayload {
-  event: "diwali_surge";
-  service: "kam-karo-api";
-  city: string;
-  item_id: string;
-  stock_remaining: number;
-  tts_p95_latency_ms: number;
-  error_rate: number;
-  recommended_action: "enable_surge_lite_mode";
-  triggered_at: string;
-}
+import { config } from "../config.js";
+import type { CityName, DiwaliSurgePayload } from "../types.js";
 
 export interface DiwaliSurgeResult {
   webhookStatusCode: number;
@@ -30,33 +20,34 @@ export class NudgebeeError extends Error {
   }
 }
 
-export function buildDiwaliSurgePayload(city: string, itemId: string, stockRemaining: number): DiwaliSurgePayload {
+/** Exact TDD §8.3 payload. */
+export function buildDiwaliSurgePayload(city: CityName, itemId: string, stockRemaining: number): DiwaliSurgePayload {
   return {
     event: "diwali_surge",
-    service: "kam-karo-api",
+    service: "kam-karo-bazaar",
     city,
     item_id: itemId,
     stock_remaining: stockRemaining,
     tts_p95_latency_ms: 4300,
     error_rate: 0.19,
     recommended_action: "enable_surge_lite_mode",
-    triggered_at: new Date().toISOString(),
   };
 }
 
 export async function triggerDiwaliSurge(
-  city: string,
+  city: CityName,
   itemId: string,
   stockRemaining: number,
 ): Promise<DiwaliSurgeResult> {
-  const webhookUrl = process.env.NUDGEBEE_WEBHOOK_URL;
-  if (!webhookUrl) throw new NudgebeeError("NUDGEBEE_WEBHOOK_URL is not set in server/.env", 500, "");
+  if (!config.nudgebeeWebhookUrl) {
+    throw new NudgebeeError("NUDGEBEE_WEBHOOK_URL is not set in server/.env", 500, "");
+  }
 
   const payload = buildDiwaliSurgePayload(city, itemId, stockRemaining);
 
   let response: Response;
   try {
-    response = await fetch(webhookUrl, {
+    response = await fetch(config.nudgebeeWebhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
