@@ -117,6 +117,14 @@ itemsRouter.post("/items/voice", receiveAudio, async (req: Request, res: Respons
 
   const sellerLanguage = detectedLanguage === "unknown" ? requestedLanguage : detectedLanguage;
   const { listing, source } = await extractSellerListing(transcript, sellerLanguage);
+  if (!listing) {
+    res.status(422).json({
+      error: `Heard "${transcript}" but no product and price. Try: item name, quantity and price, e.g. "Kaju katli 1 kilo 650 rupaye".`,
+      transcript,
+      detectedLanguage,
+    });
+    return;
+  }
   const item: Item = { id: nextItemId(), ...listing, city, sellerLanguage };
   addItem(item);
   appendOpsLog("INFO", `New listing "${item.title}" at ₹${item.askPrice} in ${city} (${sellerLanguage}, via ${source})`);

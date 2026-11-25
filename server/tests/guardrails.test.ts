@@ -112,6 +112,7 @@ test("Seller JSON extraction strips fences and <think> blocks", () => {
 
 test("Seller fallback: floor 85% of ask, benchmark 80%, valid category", () => {
   const listing = fallbackListing("Kaju katli 1 kilo, 1,200 rupees");
+  assert.ok(listing);
   assert.equal(listing.askPrice, 1200);
   assert.equal(listing.floorPrice, 1020);
   assert.equal(listing.benchmarkPrice, 960);
@@ -119,6 +120,11 @@ test("Seller fallback: floor 85% of ask, benchmark 80%, valid category", () => {
   assert.equal(listing.category, "sweets");
   assert.equal(normalizeCategory("Gift Hampers", "x"), "hampers");
   assert.equal(normalizeCategory(undefined, "Terracotta diya set"), "decor");
+});
+
+test("Seller fallback never invents a price (stray 'हाँ।' -> no listing)", () => {
+  assert.equal(fallbackListing("हाँ।"), null);
+  assert.equal(fallbackListing(""), null);
 });
 
 test("NudgeBee diwali_surge payload matches the TDD contract exactly", () => {
