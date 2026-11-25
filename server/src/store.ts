@@ -1,13 +1,8 @@
+// In-memory Diwali bazaar store (zero DB server). Single Node event loop => synchronous ops are atomic.
 import { computeFairPrice } from "./pricing.js";
-import type {
-  ExperimentStats,
-  HagglingPersona,
-  Item,
-  OpsLogEntry,
-  PublicItemView,
-} from "./types.js";
+import type { ExperimentStats, HagglingPersona, Item, OpsLogEntry, PublicItemView } from "./types.js";
 
-const items: Item[] = [
+const SEED_ITEMS: readonly Item[] = [
   {
     id: "item_01",
     title: "Homemade Pure Ghee Kaju Katli (1 kg)",
@@ -43,10 +38,14 @@ const items: Item[] = [
   },
 ];
 
+const items: Item[] = SEED_ITEMS.map((item) => ({ ...item }));
+
 export const experimentStats: ExperimentStats = {
   polite_aunty: { sessions: 0, dealsClosed: 0, totalRevenue: 0 },
   savage_local: { sessions: 0, dealsClosed: 0, totalRevenue: 0 },
 };
+
+const OPS_LOG_LIMIT = 50;
 
 export const opsLog: OpsLogEntry[] = [
   {
@@ -64,19 +63,27 @@ export function getItemById(itemId: string): Item | undefined {
   return items.find((item) => item.id === itemId);
 }
 
+/** Next sequential id after the seeds: item_04, item_05, ... */
+export function nextItemId(): string {
+  const maxSeq = items.reduce((max, item) => {
+    const match = /^item_(\d+)$/.exec(item.id);
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+  return `item_${String(maxSeq + 1).padStart(2, "0")}`;
+}
+
+/** Newest listings first so Tab 1's inventory grid shows the fresh item on top. */
 export function addItem(item: Item): Item {
   items.unshift(item);
   return item;
 }
 
-export function toPublicItemView(
-  item: Item,
-  cityMultiplier: number
-): PublicItemView {
+/** Buyer-safe view. Explicitly whitelists fields so floorPrice can never leak. */
+export function toPublicItemView(item: Item, cityMultiplier: number): PublicItemView {
   const { adjustedBenchmark, markupPct, fairPriceStatus } = computeFairPrice(
     item.askPrice,
     item.benchmarkPrice,
-    cityMultiplier
+    cityMultiplier,
   );
 
   return {
@@ -97,11 +104,11 @@ export type LockDealOutcome =
   | { ok: true; item: Item; remainingStock: number }
   | { ok: false; reason: "NOT_FOUND" | "OUT_OF_STOCK" };
 
-export function lockDeal(
-  itemId: string,
-  finalPrice: number,
-  personaUsed: HagglingPersona
-): LockDealOutcome {
+/**
+ * Stock check, decrement and A/B stats update run synchronously with
+ * zero awaits in between, so concurrent requests can never oversell.
+ */
+export function lockDeal(itemId: string, finalPrice: number, personaUsed: HagglingPersona): LockDealOutcome {
   const item = items.find((entry) => entry.id === itemId);
   if (!item) {
     return { ok: false, reason: "NOT_FOUND" };
@@ -110,30 +117,30 @@ export function lockDeal(
     return { ok: false, reason: "OUT_OF_STOCK" };
   }
 
-  // Synchronous atomic update with zero awaits between check and mutation
   item.stock -= 1;
   experimentStats[personaUsed].dealsClosed += 1;
   experimentStats[personaUsed].totalRevenue += Math.round(finalPrice);
 
-  return {
-    ok: true,
-    item,
-    remainingStock: item.stock,
-  };
+  return { ok: true, item, remainingStock: item.stock };
 }
 
-export function appendOpsLog(
-  stage: OpsLogEntry["stage"],
-  message: string
-): OpsLogEntry {
-  const entry: OpsLogEntry = {
-    timestamp: new Date().toISOString(),
-    stage,
-    message,
-  };
+/** Newest entries first, capped at 50. */
+export function appendOpsLog(stage: OpsLogEntry["stage"], message: string): OpsLogEntry {
+  const entry: OpsLogEntry = { timestamp: new Date().toISOString(), stage, message };
   opsLog.unshift(entry);
-  if (opsLog.length > 50) {
-    opsLog.length = 50;
+  if (opsLog.length > OPS_LOG_LIMIT) {
+    opsLog.length = OPS_LOG_LIMIT;
   }
   return entry;
+}
+
+/** Test helper: restore the 3 seed items and zero all counters. */
+export function resetStore(): void {
+  items.splice(0, items.length, ...SEED_ITEMS.map((item) => ({ ...item })));
+  for (const stats of Object.values(experimentStats)) {
+    stats.sessions = 0;
+    stats.dealsClosed = 0;
+    stats.totalRevenue = 0;
+  }
+  opsLog.length = 0;
 }

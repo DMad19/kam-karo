@@ -1,0 +1,18 @@
+# NudgeBee forager agent. Credentials come from infra/nudgebee/.env (gitignored) — never inline them here.
+services:
+  forager:
+    image: registry.nudgebee.com/nudgebee-forager:latest
+    platform: linux/amd64
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - NB_RELAY_URL=wss://relay.nudgebee.com/register
+      - NB_SIGNING_PUBLIC_KEY=KhVqjHRomIZCykcVnxlCoZBUr932GqbaullQd4G/+Zs=
+      - NB_DATA_DIR=/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - forager-data:/data
+
+volumes:
+  forager-data:
